@@ -81,9 +81,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excelFiles'])) {
     // Write processed data to the new sheet
     foreach ($processedData as $rowIndex => $row) {
         foreach ($row as $colIndex => $value) {
-            $outputSheet->setCellValueByColumnAndRow($colIndex + 1, $rowIndex + 1, $value);
+            // Convert column index to column letter
+            $columnLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex + 1);
+            $outputSheet->setCellValue($columnLetter . ($rowIndex + 1), $value);
         }
     }
+    
 
     // Output the new Excel file
     $outputFileName = "processed_data.xlsx";
