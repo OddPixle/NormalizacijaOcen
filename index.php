@@ -4,42 +4,25 @@ require 'vendor/autoload.php';
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
-// Function to calculate the average
-function calculateAverage($values) {
-    return array_sum($values) / count($values);
-}
-
-// Function to calculate the standard deviation
-function calculateStandardDeviation($values, $average) {
-    $sum = 0;
-    foreach ($values as $value) {
-        $sum += pow($value - $average, 2);
+// Function to normalize scores based on min-max scaling to range 1-10
+function normalizeScores($scores, $min = 1, $max = 10) {
+    $minScore = min($scores);
+    $maxScore = max($scores);
+    if ($maxScore == $minScore) {
+        return array_fill(0, count($scores), ($max + $min) / 2);
     }
-    return sqrt($sum / count($values));
-}
-
-// Function to normalize scores
-function normalizeScores($scores, $average, $stdDev) {
     $normalized = [];
     foreach ($scores as $score) {
-        $normalized[] = ($stdDev != 0) ? ($score - $average) / $stdDev : 0;
+        $normalized[] = $min + (($score - $minScore) / ($maxScore - $minScore)) * ($max - $min);
     }
     return $normalized;
 }
 
-// Function to rescale scores back to the range 1–10
-function rescaleScores($normalizedScores, $min = 1, $max = 10) {
-    $rescaled = [];
-    foreach ($normalizedScores as $score) {
-        $rescaled[] = round(5 + $score * (($max - $min) / 2), 2);
-    }
-    return $rescaled;
-}
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excelFiles'])) {
     $files = $_FILES['excelFiles'];
-    $processedData = [];
+    $processedFiles = [];
     $tempFolder = "uploads/";
 
     // Ensure temp folder exists
@@ -52,55 +35,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excelFiles'])) {
         $filePath = $tempFolder . basename($files['name'][$i]);
         move_uploaded_file($files['tmp_name'][$i], $filePath);
 
-        // Load the Excel file
-        $spreadsheet = IOFactory::load($filePath);
-        $sheet = $spreadsheet->getActiveSheet();
-        $data = $sheet->toArray();
+        try {
+            // Load the Excel file
+            $spreadsheet = IOFactory::load($filePath);
+            $sheet = $spreadsheet->getActiveSheet();
 
-        // Process data
-        foreach ($data as $row) {
-            if (empty($row)) continue; // Skip empty rows
-            $scores = array_filter($row, 'is_numeric'); // Get numeric scores only
-            if (count($scores) > 0) {
-                $average = calculateAverage($scores);
-                $stdDev = calculateStandardDeviation($scores, $average);
-                $normalized = normalizeScores($scores, $average, $stdDev);
-                $rescaled = rescaleScores($normalized);
-                $processedData[] = $rescaled; // Add processed row
+            // Define the static range (Rows 2-10, Columns B-E)
+            $startRow = 11;
+            $endRow = 17;
+            $startColumn = 'C';
+            $endColumn = 'I';
+
+            // Process the specified range
+            for ($rowIndex = $startRow; $rowIndex <= $endRow; $rowIndex++) {
+                $scores = [];
+                foreach (range($startColumn, $endColumn) as $col) {
+                    $cellValue = $sheet->getCell("$col$rowIndex")->getValue();
+                    if (is_numeric($cellValue)) {
+                        $scores[] = $cellValue;
+                    }
+                }
+                if (count($scores) > 0) {
+                    $normalized = normalizeScores($scores, 1, 10);
+                    foreach (range($startColumn, $endColumn) as $index => $col) {
+                        if (isset($normalized[$index])) {
+                            $sheet->setCellValue("$col$rowIndex", round($normalized[$index], 2));
+                        }
+                    }
+                }
+            }
+
+            // Save the updated file
+            $processedFileName = $tempFolder . 'processed_' . basename($files['name'][$i]);
+            $writer = new Xlsx($spreadsheet);
+            $writer->save($processedFileName);
+            $processedFiles[] = $processedFileName;
+        } catch (Exception $e) {
+            echo "Error processing file " . htmlspecialchars($files['name'][$i]) . ": " . $e->getMessage() . "<br>";
+        }
+    }
+
+    // Zip all processed files
+    $zipFileName = "processed_files.zip";
+    $zip = new ZipArchive();
+    if ($zip->open($zipFileName, ZipArchive::CREATE | ZipArchive::OVERWRITE) === TRUE) {
+        foreach ($processedFiles as $processedFile) {
+            if (file_exists($processedFile)) {
+                $zip->addFile($processedFile, basename($processedFile));
             }
         }
+        $zip->close();
 
-        // Optionally, delete the file after processing
-        unlink($filePath);
-    }
+        // Serve the ZIP file for download
+        header('Content-Type: application/zip');
+        header('Content-Disposition: attachment; filename="' . basename($zipFileName) . '"');
+        header('Content-Length: ' . filesize($zipFileName));
+        readfile($zipFileName);
 
-    // Create a new spreadsheet for the output
-    $outputSpreadsheet = new Spreadsheet();
-    $outputSheet = $outputSpreadsheet->getActiveSheet();
-
-    // Write processed data to the new sheet
-    foreach ($processedData as $rowIndex => $row) {
-        foreach ($row as $colIndex => $value) {
-            // Convert column index to column letter
-            $columnLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex + 1);
-            $outputSheet->setCellValue($columnLetter . ($rowIndex + 1), $value);
+         // Cleanup
+         foreach ($processedFiles as $processedFile) {
+            unlink($processedFile);
         }
+        unlink($zipFileName);
+        exit;
+    } else {
+        echo "Error creating ZIP file.";
     }
-    
-
-    // Output the new Excel file
-    $outputFileName = "processed_data.xlsx";
-    $writer = new Xlsx($outputSpreadsheet);
-    $writer->save($outputFileName);
-
-    // Offer the file for download
-    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    header('Content-Disposition: attachment; filename="' . $outputFileName . '"');
-    readfile($outputFileName);
-
-    // Clean up the temporary output file
-    unlink($outputFileName);
-    exit;
 }
 ?>
 
