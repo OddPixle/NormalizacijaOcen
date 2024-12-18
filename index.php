@@ -1,44 +1,17 @@
 <?php
 require 'vendor/autoload.php';
 
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
-use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use ZipArchive;
 
-// Function to normalize scores based on min-max scaling to range 1-10
 function normalizeScores($scores) {
-    $normalized = [];
-    $avrage = array_sum($scores) / count($scores);
-    $standardDeviation=calculateStandardDeviation($scores);
-    $minScore=min($scores);
-    $maxScore=max($scores);
-    foreach ($scores as $score) {
-        //$normalized[] = ($score-$avrage)/$standardDeviation;
-        $normalized[]=($score - $minScore) /($maxScore-$minScore);
-    }
-    $adapted = [];
-    foreach ($normalized as $normal){
-        $adapted[] = 5.5 + $normal * 4.5; 
-    }
-    return $adapted;
-}
-
-function calculateStandardDeviation($scores) {
-    // Izračun povprečja
-    $mean = array_sum($scores) / count($scores);
-
-    // Izračun vsote kvadratov razlik od povprečja
-    $sumSquaredDifferences = 0;
-    foreach ($scores as $value) {
-        $sumSquaredDifferences += pow($value - $mean, 2);
-    }
-
-    // Izračun standardnega odklona
-    $variance = $sumSquaredDifferences / count($scores);
-    $standardDeviation = sqrt($variance);
-
-    return $standardDeviation;
+    $minScore = min($scores);
+    $maxScore = max($scores);
+    $normalized = array_map(function ($score) use ($minScore, $maxScore) {
+        return 5.5 + (($score - $minScore) / ($maxScore - $minScore)) * 4.5;
+    }, $scores);
+    return $normalized;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excelFiles'])) {
@@ -51,92 +24,94 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excelFiles'])) {
         mkdir($tempFolder, 0777, true);
     }
 
-    // Loop through uploaded files
     for ($i = 0; $i < count($files['name']); $i++) {
-        $filePath = $tempFolder . basename($files['name'][$i]);
-        move_uploaded_file($files['tmp_name'][$i], $filePath);
+        $originalFilePath = $tempFolder . basename($files['name'][$i]);
+        move_uploaded_file($files['tmp_name'][$i], $originalFilePath);
 
         try {
-            // Load the Excel file
-            $spreadsheet = IOFactory::load($filePath);
+            $spreadsheet = IOFactory::load($originalFilePath);
             $sheet = $spreadsheet->getActiveSheet();
 
-            // Define the static range
             $startRow = 11;
             $endRow = 17;
             $startColumn = 'C';
             $endColumn = 'I';
 
-
-            // Process the specified range
-            for ($rowIndex = $startRow; $rowIndex <= $endRow; $rowIndex++) {
-                $scores = [];
-                foreach (range($startColumn, $endColumn) as $col) {
-                    $cellValue = $sheet->getCell("$col$rowIndex")->getValue();
-                    if (is_numeric($cellValue)) {
-                        $scores[] = $cellValue;
+            $scores = [];
+            foreach (range($startColumn, $endColumn) as $col) {
+                for ($rowIndex = $startRow; $rowIndex <= $endRow; $rowIndex++) {
+                    $value = $sheet->getCell("$col$rowIndex")->getValue();
+                    if (is_numeric($value)) {
+                        $scores[] = $value;
                     }
                 }
-                
-                if (count($scores) > 0) {
-                    $normalized = normalizeScores($scores);
-                    foreach (range($startColumn, $endColumn) as $index => $col) {
+            }
+
+            if (!empty($scores)) {
+                $normalized = normalizeScores($scores);
+                $index = 0;
+                foreach (range($startColumn, $endColumn) as $col) {
+                    for ($rowIndex = $startRow; $rowIndex <= $endRow; $rowIndex++) {
                         if (isset($normalized[$index])) {
-                            $sheet->setCellValue("$col$rowIndex", round($normalized[$index], 2));
+                            $sheet->setCellValue("$col$rowIndex", round($normalized[$index]));
+                            $index++;
                         }
                     }
                 }
             }
 
-            // Save the updated file
-            $processedFileName = $tempFolder . 'processed_' . basename($files['name'][$i]);
+            $processedFilePath = $tempFolder . 'processed_' . basename($files['name'][$i]);
             $writer = new Xlsx($spreadsheet);
-            $writer->save($processedFileName);
-            $processedFiles[] = $processedFileName;
+            $writer->save($processedFilePath);
+
+            if (file_exists($processedFilePath)) {
+                $processedFiles[] = $processedFilePath;
+            } else {
+                throw new Exception("Processed file $processedFilePath could not be created.");
+            }
         } catch (Exception $e) {
             echo "Error processing file " . htmlspecialchars($files['name'][$i]) . ": " . $e->getMessage() . "<br>";
         }
     }
 
-    // Zip all processed files
-$zipFileName = "processed_files.zip";
-$zip = new ZipArchive();
-if ($zip->open($zipFileName, ZipArchive::CREATE | ZipArchive::OVERWRITE) === TRUE) {
-    foreach ($processedFiles as $processedFile) {
-        if (file_exists($processedFile)) {
-            $zip->addFile($processedFile, basename($processedFile));
-        } else {
-            echo "Warning: File " . htmlspecialchars($processedFile) . " does not exist and was skipped.<br>";
+    $zipFileName = $tempFolder . "processed_files.zip";
+    $zip = new ZipArchive();
+
+    // Open the ZIP archive for creation
+    if ($zip->open($zipFileName, ZipArchive::CREATE | ZipArchive::OVERWRITE) === TRUE) {
+        foreach ($processedFiles as $processedFile) {
+            if (file_exists($processedFile)) {
+                $zip->addFile($processedFile, basename($processedFile));
+            } else {
+                echo "Warning: $processedFile does not exist.<br>";
+            }
         }
+        $zip->close();
+    } else {
+        echo "Error: Unable to create ZIP file.<br>";
+        exit;
     }
-    $zip->close();
 
-    // Ensure ZIP file exists before serving it
+    // Serve the ZIP file for download
     if (file_exists($zipFileName)) {
-        // Clear output buffer to avoid corrupting ZIP file
-        ob_clean();
-        flush();
-
-        // Serve the ZIP file for download
         header('Content-Type: application/zip');
         header('Content-Disposition: attachment; filename="' . basename($zipFileName) . '"');
         header('Content-Length: ' . filesize($zipFileName));
+
+        // Clean buffer to avoid corruption
+        ob_clean();
+        flush();
         readfile($zipFileName);
 
-        // Cleanup
+        // Clean up files after download
         foreach ($processedFiles as $processedFile) {
-            unlink($processedFile); // Remove processed files
+            unlink($processedFile);
         }
-        unlink($zipFileName); // Remove the ZIP file
+        unlink($zipFileName);
         exit;
-
     } else {
-        echo "Error: ZIP file could not be created.<br>";
+        echo "Error: ZIP file could not be found.<br>";
     }
-} else {
-    echo "Error: Unable to open ZIP file for writing.<br>";
-}
-
 }
 ?>
 
