@@ -1,16 +1,15 @@
 <?php
 require 'vendor/autoload.php';
 
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
-use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
-// Function to normalize scores based on min-max scaling to range 1-10
+
 function normalizeScores($scores) {
     $normalized = [];
     $avrage = array_sum($scores) / count($scores);
+    echo "<br>Avrage: $avrage<br>";
     $standardDeviation=calculateStandardDeviation($scores);
+    echo "<br>Standard deviation: $standardDeviation <br>";
     $minScore=min($scores);
     $maxScore=max($scores);
     foreach ($scores as $score) {
@@ -21,6 +20,7 @@ function normalizeScores($scores) {
     foreach ($normalized as $normal){
         $adapted[] = 5.5 + $normal * 4.5; 
     }
+    echo "<br>Normalized<br>";
     return $adapted;
 }
 
@@ -43,7 +43,6 @@ function calculateStandardDeviation($scores) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excelFiles'])) {
     $files = $_FILES['excelFiles'];
-    $processedFiles = [];
     $tempFolder = "uploads/";
 
     // Ensure temp folder exists
@@ -67,76 +66,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excelFiles'])) {
             $startColumn = 'C';
             $endColumn = 'I';
 
-
             // Process the specified range
             for ($rowIndex = $startRow; $rowIndex <= $endRow; $rowIndex++) {
-                $scores = [];
+                foreach (range($startColumn, $endColumn) as $col) {
+                    $cellValue = $sheet->getCell("$col$rowIndex")->getValue();
+                    if (is_numeric($cellValue)) {
+                        echo "Row $rowIndex, Column $col: $cellValue<br>";
+                    }
+                }
+            }
+            $scores = [];
+
+            for ($rowIndex = $startRow; $rowIndex <= $endRow; $rowIndex++) {
                 foreach (range($startColumn, $endColumn) as $col) {
                     $cellValue = $sheet->getCell("$col$rowIndex")->getValue();
                     if (is_numeric($cellValue)) {
                         $scores[] = $cellValue;
                     }
                 }
-                
-                if (count($scores) > 0) {
-                    $normalized = normalizeScores($scores);
-                    foreach (range($startColumn, $endColumn) as $index => $col) {
-                        if (isset($normalized[$index])) {
-                            $sheet->setCellValue("$col$rowIndex", round($normalized[$index], 2));
-                        }
-                    }
+            
+            }
+            if (count($scores) > 0) {
+                // Normalize the scores without writing them back to the sheet
+                $normalized = normalizeScores($scores);
+                echo "<br>"; // Separate rows for clarity
+                echo "Row $rowIndex: <br>";
+                foreach ($scores as $index => $original) {
+                    $normalizedValue = isset($normalized[$index]) ? round($normalized[$index], 2) : "N/A";
+                    echo "Original: $original, Normalized: $normalizedValue<br>";
                 }
             }
-
-            // Save the updated file
-            $processedFileName = $tempFolder . 'processed_' . basename($files['name'][$i]);
-            $writer = new Xlsx($spreadsheet);
-            $writer->save($processedFileName);
-            $processedFiles[] = $processedFileName;
+            
         } catch (Exception $e) {
             echo "Error processing file " . htmlspecialchars($files['name'][$i]) . ": " . $e->getMessage() . "<br>";
         }
+
+        // Optionally, delete the uploaded file after testing
+        unlink($filePath);
     }
-
-    // Zip all processed files
-$zipFileName = "processed_files.zip";
-$zip = new ZipArchive();
-if ($zip->open($zipFileName, ZipArchive::CREATE | ZipArchive::OVERWRITE) === TRUE) {
-    foreach ($processedFiles as $processedFile) {
-        if (file_exists($processedFile)) {
-            $zip->addFile($processedFile, basename($processedFile));
-        } else {
-            echo "Warning: File " . htmlspecialchars($processedFile) . " does not exist and was skipped.<br>";
-        }
-    }
-    $zip->close();
-
-    // Ensure ZIP file exists before serving it
-    if (file_exists($zipFileName)) {
-        // Clear output buffer to avoid corrupting ZIP file
-        ob_clean();
-        flush();
-
-        // Serve the ZIP file for download
-        header('Content-Type: application/zip');
-        header('Content-Disposition: attachment; filename="' . basename($zipFileName) . '"');
-        header('Content-Length: ' . filesize($zipFileName));
-        readfile($zipFileName);
-
-        // Cleanup
-        foreach ($processedFiles as $processedFile) {
-            unlink($processedFile); // Remove processed files
-        }
-        unlink($zipFileName); // Remove the ZIP file
-        exit;
-
-    } else {
-        echo "Error: ZIP file could not be created.<br>";
-    }
-} else {
-    echo "Error: Unable to open ZIP file for writing.<br>";
-}
-
+    exit;
 }
 ?>
 
@@ -145,14 +113,14 @@ if ($zip->open($zipFileName, ZipArchive::CREATE | ZipArchive::OVERWRITE) === TRU
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload and Process Excel Files</title>
+    <title>Test Excel File Inputs</title>
 </head>
 <body>
-    <h1>Upload and Process Excel Files</h1>
+    <h1>Test Excel File Inputs</h1>
     <form action="" method="post" enctype="multipart/form-data">
         <label for="excelFiles">Select Excel files:</label>
         <input type="file" name="excelFiles[]" id="excelFiles" multiple>
-        <button type="submit">Upload and Process</button>
+        <button type="submit">Upload and Test</button>
     </form>
 </body>
 </html>
