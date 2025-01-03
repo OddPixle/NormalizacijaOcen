@@ -3,7 +3,7 @@ require 'vendor/autoload.php';
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
-use ZipArchive;
+//use ZipArchive;
 
 function normalizeScores($scores) {
     $minScore = min($scores);
@@ -53,7 +53,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excelFiles'])) {
                 foreach (range($startColumn, $endColumn) as $col) {
                     for ($rowIndex = $startRow; $rowIndex <= $endRow; $rowIndex++) {
                         if (isset($normalized[$index])) {
-                            $sheet->setCellValue("$col$rowIndex", round($normalized[$index]));
+                            $sheet->setCellValue("$col$rowIndex", round($normalized[$index], 1));
+
+                            // Apply number format with a comma as the decimal separator
+                            $sheet->getStyle("$col$rowIndex")
+                                ->getNumberFormat()
+                                ->setFormatCode('#,##0.0');
                             $index++;
                         }
                     }
