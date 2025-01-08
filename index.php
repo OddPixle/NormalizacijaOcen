@@ -3,7 +3,7 @@ require 'vendor/autoload.php';
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
-//use ZipArchive;
+use ZipArchive;
 
 function normalizeScores($scores) {
     $minScore = min($scores);

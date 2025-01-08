@@ -1,9 +1,0 @@
-services:
-  - type: web
-    name: php-app
-    env: php
-    plan: free
-    buildCommand: composer install
-    startCommand: php -S 0.0.0.0:8080 -t .
-    runtime: php
-    region: frankfurt
