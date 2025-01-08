@@ -38,7 +38,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excelFiles'])) {
             $endColumn = 'I';
 
             $scores = [];
+
+            // Define columns to skip
+            $skipColumns = ['D', 'F', 'H', 'J'];
+
             foreach (range($startColumn, $endColumn) as $col) {
+                if (in_array($col, $skipColumns)) {
+                    continue; // Skip the specified columns
+                }
                 for ($rowIndex = $startRow; $rowIndex <= $endRow; $rowIndex++) {
                     $value = $sheet->getCell("$col$rowIndex")->getValue();
                     if (is_numeric($value)) {
@@ -47,11 +54,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excelFiles'])) {
                 }
             }
 
+
             if (!empty($scores)) {
                 $normalized = normalizeScores($scores);
                 $index = 0;
                 foreach (range($startColumn, $endColumn) as $col) {
                     for ($rowIndex = $startRow; $rowIndex <= $endRow; $rowIndex++) {
+                        if (in_array($col, $skipColumns)) {
+                            continue; // Skip the specified columns
+                        }
                         if (isset($normalized[$index])) {
                             $sheet->setCellValue("$col$rowIndex", round($normalized[$index], 1));
 

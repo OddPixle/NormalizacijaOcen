@@ -5,6 +5,74 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com)
 and this project adheres to [Semantic Versioning](https://semver.org).
 
+## 2024-12-26 - 3.7.0
+
+### Deprecated
+
+- Drawing::setIsUrl is unneeded. The property is set when setPath determines whether path is a url.
+
+### Fixed
+
+- Security patches for Samples.
+- Security patches for Html Writer.
+- Avoid unexpected charset in currency symbol. [PR #4279](https://github.com/PHPOffice/PhpSpreadsheet/pull/4279)
+- Add forceFullCalc option to Xlsx Writer. [Issue #4269](https://github.com/PHPOffice/PhpSpreadsheet/issues/4269) [PR #4271](https://github.com/PHPOffice/PhpSpreadsheet/pull/4271)
+- More context options may be needed for http(s) image. [Php issue 17121](https://github.com/php/php-src/issues/17121) [PR #4276](https://github.com/PHPOffice/PhpSpreadsheet/pull/4276)
+- Coverage-related tweaks to Xls Reader. [PR #4277](https://github.com/PHPOffice/PhpSpreadsheet/pull/4277)
+- Several fixed to ODS Writer. [Issue #4261](https://github.com/PHPOffice/PhpSpreadsheet/issues/4261) [PR #4263](https://github.com/PHPOffice/PhpSpreadsheet/pull/4263) [PR #4264](https://github.com/PHPOffice/PhpSpreadsheet/pull/4264) [PR #4266](https://github.com/PHPOffice/PhpSpreadsheet/pull/4266)
+
+## 2024-12-08 - 3.6.0
+
+### Added
+
+- Nothing yet.
+
+### Changed
+
+- Nothing yet.
+
+### Moved
+
+- Nothing yet.
+
+### Deprecated
+
+- Nothing yet.
+
+### Fixed
+
+- Html Reader/Writer Better Handling of Booleans. [PR #4257](https://github.com/PHPOffice/PhpSpreadsheet/pull/4257)
+- Fill Patterns/Colors When Xml Attributes are Missing. [Issue #4248](https://github.com/PHPOffice/PhpSpreadsheet/issues/4248) [PR #4250](https://github.com/PHPOffice/PhpSpreadsheet/pull/4250)
+- Remove Unneccesary files from Composer Package. [PR #4262](https://github.com/PHPOffice/PhpSpreadsheet/pull/4262)
+- Swapped row and column indexes in ReferenceHelper. [Issue #4246](https://github.com/PHPOffice/PhpSpreadsheet/issues/4246) [PR #4247](https://github.com/PHPOffice/PhpSpreadsheet/pull/4247)
+- Fix minor break handling drawings. [Issue #4241](https://github.com/PHPOffice/PhpSpreadsheet/issues/4241) [PR #4244](https://github.com/PHPOffice/PhpSpreadsheet/pull/4244)
+- Ignore cell formatting when the format is a single @. [Issue #4242](https://github.com/PHPOffice/PhpSpreadsheet/issues/4242) [PR #4243](https://github.com/PHPOffice/PhpSpreadsheet/pull/4243)
+- Upgrade Dompdf to Php-8.4 compatible version [PR #4267](https://github.com/PHPOffice/PhpSpreadsheet/pull/4267)
+
+## 2024-11-22 - 3.5.0
+
+### Added
+
+- Nothing yet.
+
+### Changed
+
+- Settings::libXmlLoaderOptions is ignored. [PR #4233](https://github.com/PHPOffice/PhpSpreadsheet/pull/4233)
+
+### Moved
+
+- Nothing yet.
+
+### Deprecated
+
+- Settings::setLibXmlLoaderOptions() and Settings::getLibXmlLoaderOptions() are no longer needed - no replacement.
+- Worksheet::getHashCode is no longer needed.
+
+### Fixed
+
+- Add support for `<s>` tag when converting HTML to RichText. [Issue #4223](https://github.com/PHPOffice/PhpSpreadsheet/issues/4223) [PR #4224](https://github.com/PHPOffice/PhpSpreadsheet/pull/4224)
+- Change hash code for worksheet. [Issue #4192](https://github.com/PHPOffice/PhpSpreadsheet/issues/4192) [PR #4207](https://github.com/PHPOffice/PhpSpreadsheet/pull/4207)
+
 ## 2024-11-10 - 3.4.0
 
 ### Security Fix
@@ -15,7 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org).
 
 - Add Dynamic valueBinder Property to Spreadsheet and Readers. [Issue #1395](https://github.com/PHPOffice/PhpSpreadsheet/issues/1395) [PR #4185](https://github.com/PHPOffice/PhpSpreadsheet/pull/4185)
 - Allow Omitting Chart Border. [Issue #562](https://github.com/PHPOffice/PhpSpreadsheet/issues/562) [PR #4188](https://github.com/PHPOffice/PhpSpreadsheet/pull/4188)
-- Method to Test Whether Csv Will Be Affected by Php0. [PR #4189](https://github.com/PHPOffice/PhpSpreadsheet/pull/4189)
+- Method to Test Whether Csv Will Be Affected by Php9. [PR #4189](https://github.com/PHPOffice/PhpSpreadsheet/pull/4189)
 
 ### Changed
 
